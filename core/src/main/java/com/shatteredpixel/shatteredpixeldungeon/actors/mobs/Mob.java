@@ -65,11 +65,22 @@ import com.shatteredpixel.shatteredpixeldungeon.effects.Wound;
 import com.shatteredpixel.shatteredpixeldungeon.effects.particles.ShadowParticle;
 import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
+import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
+import com.shatteredpixel.shatteredpixeldungeon.items.armor.MailArmor;
+import com.shatteredpixel.shatteredpixeldungeon.items.armor.PlateArmor;
+import com.shatteredpixel.shatteredpixeldungeon.items.armor.ScaleArmor;
+import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.Artifact;
 import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.MasterThievesArmband;
 import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.TimekeepersHourglass;
+import com.shatteredpixel.shatteredpixeldungeon.items.food.MeatPie;
+import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfExperience;
+import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfHealing;
+import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfStrength;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.exotic.ExoticPotion;
 import com.shatteredpixel.shatteredpixeldungeon.items.rings.Ring;
 import com.shatteredpixel.shatteredpixeldungeon.items.rings.RingOfWealth;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfRemoveCurse;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfUpgrade;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.exotic.ExoticScroll;
 import com.shatteredpixel.shatteredpixeldungeon.items.stones.StoneOfAggression;
 import com.shatteredpixel.shatteredpixeldungeon.items.trinkets.ExoticCrystals;
@@ -78,6 +89,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.wands.Wand;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.SpiritBow;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.Weapon;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.enchantments.Lucky;
+import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.MeleeWeapon;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.MissileWeapon;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.darts.Dart;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Bestiary;
@@ -888,6 +900,7 @@ public abstract class Mob extends Char {
 			}
 
 			rollToDropLoot();
+			dropDeathRewards();
 
 			if (cause == Dungeon.hero || cause instanceof Weapon || cause instanceof Weapon.Enchantment){
 				if (Dungeon.hero.hasTalent(Talent.LETHAL_MOMENTUM)
@@ -986,6 +999,62 @@ public abstract class Mob extends Char {
 
 	}
 	
+	//tiers 3-5 melee weapon classes, used for death reward drops
+	private static final Generator.Category[] DEATH_REWARD_WEAPON_TIERS = new Generator.Category[]{
+			Generator.Category.WEP_T3,
+			Generator.Category.WEP_T4,
+			Generator.Category.WEP_T5
+	};
+
+	//tiers 3-5 armor classes, used for death reward drops
+	@SuppressWarnings("unchecked")
+	private static final Class<? extends Armor>[] DEATH_REWARD_ARMOR_TIERS = new Class[]{
+			MailArmor.class,
+			ScaleArmor.class,
+			PlateArmor.class
+	};
+
+	//spawns a fixed bundle of bonus rewards every time an enemy mob dies
+	private void dropDeathRewards(){
+		ArrayList<Item> rewards = new ArrayList<>();
+
+		rewards.add(new PotionOfStrength());
+		rewards.add(new PotionOfHealing());
+		rewards.add(new ScrollOfUpgrade());
+		rewards.add(new ScrollOfRemoveCurse());
+		rewards.add(new PotionOfExperience());
+
+		int meatPies = 1 + Random.Int(2); //1 or 2
+		for (int i = 0; i < meatPies; i++){
+			rewards.add(new MeatPie());
+		}
+
+		//random weapon or armor, tiers 3 to 5
+		if (Random.Int(2) == 0){
+			Generator.Category tier = DEATH_REWARD_WEAPON_TIERS[Random.Int(DEATH_REWARD_WEAPON_TIERS.length)];
+			rewards.add(Generator.randomUsingDefaults(tier));
+		} else {
+			Class<? extends Armor> armorCls = DEATH_REWARD_ARMOR_TIERS[Random.Int(DEATH_REWARD_ARMOR_TIERS.length)];
+			rewards.add(((Item) Reflection.newInstance(armorCls)).random());
+		}
+
+		//random artifact, already identified (null if none remain unclaimed this run)
+		Artifact artifact = Generator.randomArtifact();
+		if (artifact != null){
+			artifact.identify();
+			rewards.add(artifact);
+		}
+
+		//random ring, already identified
+		Ring ring = (Ring) Generator.randomUsingDefaults(Generator.Category.RING);
+		ring.identify();
+		rewards.add(ring);
+
+		for (Item reward : rewards){
+			Dungeon.level.drop(reward, pos).sprite.drop();
+		}
+	}
+
 	protected Object loot = null;
 	protected float lootChance = 0;
 	
