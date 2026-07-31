@@ -27,12 +27,9 @@ jobs:
         run: chmod +x gradlew
 
       - name: Generate random signing credentials
-        id: creds
         run: |
           STORE_PASS=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9')
-          KEY_PASS=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9')
           echo "STORE_PASS=$STORE_PASS" >> "$GITHUB_ENV"
-          echo "KEY_PASS=$KEY_PASS" >> "$GITHUB_ENV"
 
       - name: Generate keystore
         run: |
@@ -42,7 +39,7 @@ jobs:
             -alias releasekey \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass "$STORE_PASS" \
-            -keypass "$KEY_PASS" \
+            -keypass "$STORE_PASS" \
             -dname "CN=SPD Fork, OU=Dev, O=Dev, L=Unknown, S=Unknown, C=US"
 
       - name: Build release APK
@@ -51,7 +48,7 @@ jobs:
             -Pandroid.injected.signing.store.file=$(pwd)/release.keystore \
             -Pandroid.injected.signing.store.password="$STORE_PASS" \
             -Pandroid.injected.signing.key.alias=releasekey \
-            -Pandroid.injected.signing.key.password="$KEY_PASS"
+            -Pandroid.injected.signing.key.password="$STORE_PASS"
 
       - name: Copy APK and write credentials file
         run: |
@@ -60,7 +57,7 @@ jobs:
           cp release.keystore release-output/release.keystore
           echo "store_password=$STORE_PASS" > release-output/keystore-credentials.txt
           echo "key_alias=releasekey" >> release-output/keystore-credentials.txt
-          echo "key_password=$KEY_PASS" >> release-output/keystore-credentials.txt
+          echo "key_password=$STORE_PASS" >> release-output/keystore-credentials.txt
 
       - name: Commit and push APK + keystore
         run: |
